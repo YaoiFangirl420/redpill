@@ -3,10 +3,13 @@ extern crate termion;
 
 use std::io;
 use std::io::stdin;
+use std::thread;
+use std::time::Duration;
 
 use termion::raw::IntoRawMode;
 use termion::input::TermRead;
 use termion::event::{Key, Event, MouseEvent};
+use termion::color;
 use termion::clear;
 
 use tui::Terminal;
@@ -14,56 +17,64 @@ use tui::backend::TermionBackend;
 use tui::widgets::{Widget, Block, Borders, Paragraph, Text};
 use tui::layout::{Layout, Constraint, Direction};
 
-fn main() -> Result<(), io::Error> {
+type TerminalTarget = tui::Terminal<tui::backend::TermionBackend<termion::raw::RawTerminal<std::io::Stdout>>>;
 
-    println!("{}", clear::All);
+fn draw_main_ui(terminal: &mut TerminalTarget, words: Vec<String>) {
 
-    let stdin = stdin();
+  let title = format!("redpill version {}", env!("CARGO_PKG_VERSION"));
 
-    let title = format!("redpill version {}", env!("CARGO_PKG_VERSION"));
-    let stdout = io::stdout().into_raw_mode()?;
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+  terminal.draw(|mut f| {
 
-    terminal.draw(|mut f| {
-      let size = f.size();
+    let size = f.size();
 
-      let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-          [
-          Constraint::Percentage(80),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-          ].as_ref()
+    let chunks = Layout::default()
+      .direction(Direction::Vertical)
+      .constraints(
+        [
+        Constraint::Percentage(90),
+        Constraint::Percentage(10),
+        ].as_ref()
         )
-        .split(size);
+      .split(size);
 
-      let block = Block::default()
-        .title(&title)
-        .borders(Borders::ALL);
+    let block = Block::default()
+      .title(&title)
+      .borders(Borders::ALL);
 
-      let text = [
-        Text::raw("Line 1"),
-        Text::raw("Line 2\n"),
-        Text::raw("haha lol"),
+    let mut text = vec![];
+    for word in words.iter() {
+      text.push(Text::raw(format!("{}\n", word)));
+    }
 
-      ];
-      Paragraph::new(text.iter())
-        .block(block)
-        .wrap(true)
-        .render(&mut f, chunks[0]);
+    Paragraph::new(text.iter())
+      .block(block)
+      .wrap(true)
+      .render(&mut f, chunks[0]);
 
-      Block::default()
-        .title("YOLO")
-        .borders(Borders::ALL)
-        .render(&mut f, chunks[2]);
-    }).unwrap();
+    Block::default()
+      .title("Input")
+      .borders(Borders::ALL)
+      .render(&mut f, chunks[1]);
+  });
+}
+
+fn main() -> Result<(), io::Error> {
+  /* initialize screen */
+  println!("{}", clear::All);
+  let stdin = stdin();
+  let stdout = io::stdout().into_raw_mode()?;
+  let backend: TermionBackend<termion::raw::RawTerminal<std::io::Stdout>> = TermionBackend::new(stdout);
+  let mut terminal = Terminal::new(backend)?;
+
+  draw_main_ui(&mut terminal, vec![format!("aye"), format!("no")]);
 
     for c in stdin.events() {
       let evt = c.unwrap();
       match evt {
-        Event::Key(Key::Char('q')) => break,
+        Event::Key(Key::Ctrl('q')) => break,
+        Event::Key(Key::Char(c)) => {
+
+        },
         _ => (),
       }
     }
